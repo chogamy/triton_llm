@@ -5,7 +5,7 @@
 host 서버에서
 
 ```
-docker build -f <YOUR_PATH>/triton_llm/dockerfile -t triton .
+docker build -f <YOUR_PATH>/triton_llm/dockerfile -t triton_llm .
 
 docker run -d --gpus '"device=0"' \
   -p 10400:8000 \
