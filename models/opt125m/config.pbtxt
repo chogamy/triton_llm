@@ -3,6 +3,36 @@ max_batch_size: 64
 
 input [
     {
+        name: "do_sample"
+        data_type: TYPE_BOOL
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "max_new_tokens"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "top_k"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "top_p"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "temperature"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
         name: "system_prompt"
         data_type: TYPE_STRING
         dims: [-1]
@@ -19,7 +49,6 @@ input [
         dims: [-1]
         optional: true
     }
-
 ]
 
 output [
@@ -42,7 +71,7 @@ dynamic_batching {
 
 instance_group [
   {
-    count: 2
+    count: 1
     kind: KIND_GPU
     gpus: [0]
     passive: false

@@ -1,7 +1,12 @@
 import gc
 import torch
 import triton_python_backend_utils as pb_utils
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, GenerationConfig
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    BitsAndBytesConfig,
+    GenerationConfig,
+)
 import numpy as np
 import json
 
@@ -17,39 +22,71 @@ class Base:
         # # self.model_path = "/weights/Meta-Llama-3.1-8B-Instruct"
         # # self.model_path = "/home/miruware/triton/weights/opt125m"
         # self.model_path = "/triton/weights/opt125m"
-        
-        
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, use_fast=True, trust_remote_code=True)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.config = GenerationConfig(
-            eos_token_id=self.tokenizer.eos_token_id,
-            pad_token_id=self.tokenizer.pad_token_id,
-            do_sample=True,
-            max_new_tokens=1500,
-            top_k=85,
-            top_p=0.85,
-            temperature=0.2,
-            use_cache=True,
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, use_fast=True, trust_remote_code=True
         )
+        self.tokenizer.pad_token = self.tokenizer.eos_token
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
             device_map={"": f"cuda:{self.model_instance_device_id}"},
-            trust_remote_code=True
+            trust_remote_code=True,
         )
 
     def execute(self, requests):
         responses = []
 
         for request in requests:
+            do_sample = pb_utils.get_input_tensor_by_name(request, "do_sample")
+            max_new_tokens = pb_utils.get_input_tensor_by_name(
+                request, "max_new_tokens"
+            )
+            top_k = pb_utils.get_input_tensor_by_name(request, "top_k")
+            top_p = pb_utils.get_input_tensor_by_name(request, "top_p")
+            temperature = pb_utils.get_input_tensor_by_name(request, "temperature")
+            
+            do_sample = None if do_sample is None else do_sample.as_numpy()
+            max_new_tokens = None if max_new_tokens is None else max_new_tokens.as_numpy()
+            top_k = None if top_k is None else top_k.as_numpy()
+            top_p = None if top_p is None else top_p.as_numpy()
+            temperature = None if temperature is None else temperature.as_numpy()
+            
+            do_sample = None if do_sample is None else do_sample[0]
+            max_new_tokens = None if max_new_tokens is None else max_new_tokens[0]
+            top_k = None if top_k is None else top_k[0]
+            top_p = None if top_p is None else top_p[0]
+            temperature = None if temperature is None else temperature[0]
+                
+            do_sample = bool(do_sample) # 없어도 되지 않나
+            max_new_tokens = 1500 if max_new_tokens is None else int(max_new_tokens)
+            top_k = 85 if top_k is None else int(top_k)
+            top_p = 0.85 if top_p is None else float(top_p)
+            temperature = 0.2 if temperature is None else float(temperature)
 
-            decoder = np.vectorize(lambda x: x.decode('UTF-8'))
+            config = GenerationConfig(
+                eos_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.pad_token_id,
+                do_sample=do_sample,
+                max_new_tokens=max_new_tokens,
+                top_k=top_k,
+                top_p=top_p,
+                temperature=temperature,
+                use_cache=True,
+            )
 
-            prompt_tensor = pb_utils.get_input_tensor_by_name(request, "system_prompt").as_numpy()
-            query_tensor = pb_utils.get_input_tensor_by_name(request, "query").as_numpy()
-            context_tensor = pb_utils.get_input_tensor_by_name(request, "context").as_numpy()
+            decoder = np.vectorize(lambda x: x.decode("UTF-8"))
+
+            prompt_tensor = pb_utils.get_input_tensor_by_name(
+                request, "system_prompt"
+            ).as_numpy()
+            query_tensor = pb_utils.get_input_tensor_by_name(
+                request, "query"
+            ).as_numpy()
+            context_tensor = pb_utils.get_input_tensor_by_name(
+                request, "context"
+            ).as_numpy()
             prompt = decoder(prompt_tensor)[0][0]
             query = decoder(query_tensor)[0][0]
             context = decoder(context_tensor)[0][0]
@@ -60,27 +97,26 @@ class Base:
             ]
 
             inputs = self.tokenizer.apply_chat_template(
-                messages,
-                add_generation_prompt=True,
-                return_tensors="pt"
+                messages, add_generation_prompt=True, return_tensors="pt"
             ).to(self.model.device)
 
-            output = self.model.generate(inputs, generation_config=self.config)
-            gen_tokens = len(output[:, inputs.shape[-1]:].tolist()[0])
-            response = self.tokenizer.batch_decode(output[:, inputs.shape[-1]:], skip_special_tokens=True)[0]
+            output = self.model.generate(inputs, generation_config=config)
+            gen_tokens = len(output[:, inputs.shape[-1] :].tolist()[0])
+            response = self.tokenizer.batch_decode(
+                output[:, inputs.shape[-1] :], skip_special_tokens=True
+            )[0]
 
-            log_data = {
-                "system_prompt": prompt,
-                "context": len(context),
-                "query": query,
-                "response": response
-            }
+            
 
-            self.logger.log_info(f"{log_data}")
-
-            out_tensor = pb_utils.Tensor("response", np.array(response.strip(), dtype=np.object_))
-            out2_tensor = pb_utils.Tensor("tokens", np.array(gen_tokens, dtype=np.int64))
-            response = pb_utils.InferenceResponse(output_tensors=[out_tensor, out2_tensor])
+            out_tensor = pb_utils.Tensor(
+                "response", np.array(response.strip(), dtype=np.object_)
+            )
+            out2_tensor = pb_utils.Tensor(
+                "tokens", np.array(gen_tokens, dtype=np.int64)
+            )
+            response = pb_utils.InferenceResponse(
+                output_tensors=[out_tensor, out2_tensor]
+            )
             responses.append(response)
 
             gc.collect()
