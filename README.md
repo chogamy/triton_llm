@@ -1,5 +1,11 @@
 # Triton example
 
+## Env
+
+- RTX A6000
+
+- Ubuntu 22.04.3 LTS
+
 ## 실행
 
 host 서버에서
