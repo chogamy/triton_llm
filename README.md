@@ -11,15 +11,12 @@
 host 서버에서
 
 ```
-docker build -f <YOUR_PATH>/triton_llm/dockerfile -t triton_llm .
+git clone <이 레포지토리>
 
-docker run -d --gpus '"device=0"' \
-  -p 10400:8000 \
-  -p 10401:8001 \
-  -p 10402:8002 \
-  --name triton_llm triton_llm
+cd triton_llm
+
+docker compose up -d
 ```
-
 
 ## Test
 
