@@ -58,7 +58,12 @@ output [
         dims: [-1]
     },
     {
-        name: "tokens"
+        name: "output_tokens"
+        data_type: TYPE_INT64
+        dims: [-1]
+    },
+    {
+        name: "input_tokens"
         data_type: TYPE_INT64
         dims: [-1]
     }
@@ -73,7 +78,7 @@ instance_group [
   {
     count: 1
     kind: KIND_GPU
-    gpus: [0]
+    gpus: [0,1,2,3]
     passive: false
   }
 ]

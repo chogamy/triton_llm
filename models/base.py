@@ -61,9 +61,9 @@ class Base:
                 
             do_sample = bool(do_sample) # 없어도 되지 않나
             max_new_tokens = 1500 if max_new_tokens is None else int(max_new_tokens)
-            top_k = 85 if top_k is None else int(top_k)
-            top_p = 0.85 if top_p is None else float(top_p)
-            temperature = 0.2 if temperature is None else float(temperature)
+            top_k = None if top_k is None else int(top_k)
+            top_p = None if top_p is None else float(top_p)
+            temperature = None if temperature is None else float(temperature)
 
             config = GenerationConfig(
                 eos_token_id=self.tokenizer.eos_token_id,
@@ -100,22 +100,25 @@ class Base:
                 messages, add_generation_prompt=True, return_tensors="pt"
             ).to(self.model.device)
 
+            input_tokens = inputs.shape[1]
+
             output = self.model.generate(inputs, generation_config=config)
             gen_tokens = len(output[:, inputs.shape[-1] :].tolist()[0])
             response = self.tokenizer.batch_decode(
                 output[:, inputs.shape[-1] :], skip_special_tokens=True
             )[0]
 
-            
-
-            out_tensor = pb_utils.Tensor(
+            output = pb_utils.Tensor(
                 "response", np.array(response.strip(), dtype=np.object_)
             )
-            out2_tensor = pb_utils.Tensor(
-                "tokens", np.array(gen_tokens, dtype=np.int64)
+            output_tokens = pb_utils.Tensor(
+                "output_tokens", np.array(gen_tokens, dtype=np.int64)
+            )
+            input_tokens = pb_utils.Tensor(
+                "input_tokens", np.array(input_tokens, dtype=np.int64)
             )
             response = pb_utils.InferenceResponse(
-                output_tensors=[out_tensor, out2_tensor]
+                output_tensors=[output, output_tokens, input_tokens]
             )
             responses.append(response)
 
