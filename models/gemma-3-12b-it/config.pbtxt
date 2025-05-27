@@ -1,0 +1,85 @@
+backend: "python"
+max_batch_size: 64
+
+input [
+    {
+        name: "do_sample"
+        data_type: TYPE_BOOL
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "max_new_tokens"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "top_k"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "top_p"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "temperature"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "system_prompt"
+        data_type: TYPE_STRING
+        dims: [-1]
+    },
+    {
+        name: "query"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    },
+    {
+        name: "context"
+        data_type: TYPE_STRING
+        dims: [-1]
+        optional: true
+    }
+]
+
+output [
+    {
+        name: "response"
+        data_type: TYPE_STRING
+        dims: [-1]
+    },
+    {
+        name: "output_tokens"
+        data_type: TYPE_INT64
+        dims: [-1]
+    },
+    {
+        name: "input_tokens"
+        data_type: TYPE_INT64
+        dims: [-1]
+    }
+]
+
+dynamic_batching {
+    preferred_batch_size: [2, 4, 6, 8, 16, 32, 64]
+    max_queue_delay_microseconds: 30000
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+    gpus: [0,1,2,3]
+    passive: false
+  }
+]
+
