@@ -10,6 +10,8 @@ services:
       - "8000:8000"  # HTTP
       - "8001:8001"  # gRPC
       - "8002:8002"  # Metrics
+    volumes:
+      - <YOUR_MODEL_PATH>:/triton_llm/weights/gemma-3-12b-it
     deploy:
       resources:
         reservations:
